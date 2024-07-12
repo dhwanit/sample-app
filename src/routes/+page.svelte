@@ -3,7 +3,7 @@
 	import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 	import { onDestroy, onMount } from "svelte";
 
-  const onLogin = () => invoke('login', { apiKey: "", username: "AB0101", password: "R@ndOmP@$$wOrd123!"});
+  const onLogin = () => invoke('login', { apiKey: "", username: "AB0101", password: "R@ndOmP@$$wOrd123!", mfaEncodedSecret: "5BJK5V35KRK5V3OWHJK5ZHIHSNSVTDU3"});
   const onAddMargin = () => invoke('add_margin', { marginAmount: 300000 });
 
   const requestTokenListener = async (e: any) => {
