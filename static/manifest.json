@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Sample App UI",
+  "description": "Sample App UI",
+  "version": "1.0.0",
+  "action": {
+    "default_title": "Sample App UI",
+    "default_icon": "favicon.png",
+    "default_popup": "index.html"
+  },
+  "permissions": [
+    "storage",
+    "unlimitedStorage"
+  ]
+}
