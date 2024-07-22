@@ -13,6 +13,10 @@ use totp_rs::{Algorithm, Secret, TOTP};
 // Using the chromiumoxide library to handle the login process for the website
 pub async fn request_token(
     browser: Browser,
+    api_key: String,
+    username: String,
+    password: String,
+    mfa_encoded_secret: String,
 ) -> Result<(String, String), Box<dyn std::error::Error>> {
     const LOGIN_URL: &str =
         "http://ec2-3-110-151-1.ap-south-1.compute.amazonaws.com/tmp/simulate/login.html";
@@ -24,11 +28,11 @@ pub async fn request_token(
     // Step 2: Enter username and password
     navigated_tab
         .find_element("input#userid")?
-        .type_into("AB0101")?;
+        .type_into(username.as_str())?;
 
     navigated_tab
         .find_element("input#password")?
-        .type_into("R@ndOmP@$$wOrd123!")?;
+        .type_into(password.as_str())?;
 
     navigated_tab.find_element("button")?.click()?;
 
@@ -49,7 +53,7 @@ pub async fn request_token(
     navigated_tab.wait_for_element("input#userid");
     navigated_tab
         .find_element("input#userid")?
-        .type_into(token.as_str())?;
+        .type_into(mfa_encoded_secret.as_str())?;
 
     // Submit the form
     navigated_tab
@@ -137,7 +141,7 @@ pub async fn handle_margin(
             tabbinger.wait_for_element("input#addfunds_amount")?;
             tabbinger
                 .find_element("input#addfunds_amount")?
-                .type_into("1000000")?;
+                .type_into(margin_amount.to_string().as_str())?;
 
             tabbinger.wait_for_element("button#addfunds_submit")?;
             tabbinger.find_element("button#addfunds_submit")?.click()?;

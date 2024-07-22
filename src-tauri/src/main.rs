@@ -40,7 +40,14 @@ async fn login(
     // Steps 1-4
     let browser = browser_sate.0.lock().await.clone();
 
-    let token: Result<(String, String), Box<dyn std::error::Error>> = request_token(browser).await;
+    let token: Result<(String, String), Box<dyn std::error::Error>> = request_token(
+        browser,
+        api_key.clone(),
+        username.clone(),
+        password.clone(),
+        mfa_encoded_secret.clone(),
+    )
+    .await;
     match token {
         Ok(token) => {
             // Emit event(s)
