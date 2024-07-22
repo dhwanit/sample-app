@@ -1,4 +1,5 @@
 use headless_chrome::browser::tab;
+use headless_chrome::protocol::cdp::Database::Error;
 use headless_chrome::protocol::cdp::Page;
 use headless_chrome::protocol::cdp::Target::CreateTarget;
 use headless_chrome::{browser, Browser, LaunchOptions};
@@ -8,6 +9,23 @@ use std::thread;
 use std::time::Duration;
 use tokio::sync::Mutex;
 use totp_rs::{Algorithm, Secret, TOTP};
+use url::Url;
+
+async fn parse_request_token(url: &str) -> Result<String, Box<dyn std::error::Error>> {
+    // Parse the URL
+    let parsed_url = Url::parse(url)?;
+    println!("Parsed URL: {}", parsed_url);
+
+    // Get the query pairs
+    let query_pairs = parsed_url.query_pairs();
+    // Find the request_token
+    for (key, value) in query_pairs {
+        if key == "request_token" {
+            return Ok(value.to_string());
+        }
+    }
+    Err("Request token not found".into())
+}
 
 // Login with TOTP
 // Using the chromiumoxide library to handle the login process for the website
@@ -42,7 +60,7 @@ pub async fn request_token(
         6,
         1,
         30,
-        Secret::Raw("TestSecretSuperSecret".as_bytes().to_vec())
+        Secret::Encoded(mfa_encoded_secret.to_string())
             .to_bytes()
             .unwrap(),
     )
@@ -53,63 +71,72 @@ pub async fn request_token(
     navigated_tab.wait_for_element("input#userid");
     navigated_tab
         .find_element("input#userid")?
-        .type_into(mfa_encoded_secret.as_str())?;
+        .type_into(token.as_str())?;
 
     // Submit the form
     navigated_tab
         .find_element("button.button-orange.wide")?
         .click()?;
-    navigated_tab.wait_for_element("strong#request_token");
 
-    let requested_token = navigated_tab
-        .find_element("strong#request_token")?
-        .get_inner_text()?;
+    while navigated_tab.get_url().contains("simulate/2fa") {
+        thread::sleep(Duration::from_millis(300));
+    }
 
-    // Step 5: Retrieve the token from localStorage
-    // Define the JavaScript to retrieve the token from localStorage
-    let script = r#"
-     (function() {
-         return localStorage.getItem('__storejs_dpmorgan_enctoken');
-     })();
- "#; // Evaluate the JavaScript in the context of the page
-    let encoded_token = navigated_tab
-        .evaluate(script, true)?
-        .value
-        .unwrap()
-        .to_string();
+    let parsing_result = parse_request_token(navigated_tab.get_url().as_str()).await;
 
-    // Check if the token exists
-    if !requested_token.is_empty() {
-        if !encoded_token.is_empty() {
-            // Check if the token matches the expected format
-            //let encoded_token = encoded_token.trim();
-            let regex = Regex::new(r"^.{1,}$").unwrap(); // Assuming TOTP tokens are 21-character strings
+    match parsing_result {
+        Ok(requested_token) => {
+            // Step 5: Retrieve the token from localStorage
+            // Define the JavaScript to retrieve the token from localStorage
+            let script = r#"
+    (function() {
+        return localStorage.getItem('__storejs_dpmorgan_enctoken');
+    })();
+"#; // Evaluate the JavaScript in the context of the page
+            let encoded_token = navigated_tab
+                .evaluate(script, true)?
+                .value
+                .unwrap()
+                .to_string();
 
-            // Match the token against the regex
-            if regex.is_match(encoded_token.clone().as_str()) {
-                return Ok((requested_token, encoded_token));
+            // Check if the token exists
+            if !requested_token.is_empty() {
+                if !encoded_token.is_empty() {
+                    // Check if the token matches the expected format
+                    //let encoded_token = encoded_token.trim();
+                    let regex = Regex::new(r"^.{1,}$").unwrap(); // Assuming TOTP tokens are 21-character strings
+
+                    // Match the token against the regex
+                    if regex.is_match(encoded_token.clone().as_str()) {
+                        return Ok((requested_token, encoded_token));
+                    } else {
+                        // Returning the error
+                        return Err(Box::new(std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            "Invalid encoded token found in the localStorage",
+                        )));
+                    }
+                } else {
+                    // Returning the error
+                    return Err(Box::new(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        "No encoded token found in the localStorage",
+                    )));
+                }
             } else {
                 // Returning the error
                 return Err(Box::new(std::io::Error::new(
                     std::io::ErrorKind::Other,
-                    "Invalid encoded token found in the localStorage",
+                    "Could not find the requested token in the page",
                 )));
             }
-        } else {
-            // Returning the error
-            return Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "No encoded token found in the localStorage",
-            )));
+            return Ok((String::new(), String::new()));
         }
-    } else {
-        // Returning the error
-        return Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "Could not find the requested token in the page",
-        )));
+        Err(e) => {
+            println!("Error parsing request token: {}", e);
+            return Err(e);
+        }
     }
-    return Ok((String::new(), String::new()));
 }
 
 pub async fn handle_margin(
@@ -119,8 +146,6 @@ pub async fn handle_margin(
     const MARGIN_URL: &str =
         "http://ec2-3-110-151-1.ap-south-1.compute.amazonaws.com/tmp/simulate/margin.html";
 
-    const LOGIN_URL: &str =
-        "http://ec2-3-110-151-1.ap-south-1.compute.amazonaws.com/tmp/simulate/login.html";
     const WAITING_TIME: u64 = 3; //s
 
     // Step 6: Find the request token tab and open the popup

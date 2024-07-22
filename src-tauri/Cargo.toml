@@ -24,6 +24,7 @@ regex = "1.9.6"
 tauri = { version = "1.7.1", features = ["http-all", "window-all"] }
 tokio = { version = "1.29.1", features = ["full"] }
 headless_chrome = "1.0.9"
+url = "2.5.2"
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem and the built-in dev server is disabled.
