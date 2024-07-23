@@ -1,18 +1,12 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::borrow::{Borrow, BorrowMut};
+use headless_chrome::{Browser, LaunchOptions};
 use std::thread;
 use std::time::Duration;
 
-use async_std::stream::StreamExt;
-use headless_chrome::protocol::cdp::Page;
-use headless_chrome::protocol::cdp::Target::CreateTarget;
-use headless_chrome::{browser, Browser, LaunchOptions};
-
-use regex::Regex;
 use std::sync::Arc;
-use tauri::{window, State, Window};
+use tauri::Window;
 use tokio::sync::Mutex;
 
 mod lib;
@@ -122,12 +116,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .idle_browser_timeout(Duration::from_secs(60)) // 1 minute time out for secure operation
         .build()?;
     let browser: Browser = Browser::new(launch_options).unwrap();
+    // wait some time for the browser to start
+    thread::sleep(Duration::from_millis(300));
+    // Close the open tabs for the
+    let custom_tabs = [
+        "about:blank",
+        "chrome://newtab/",
+        "http://ec2-3-110-151-1.ap-south-1.compute.amazonaws.com/tmp/simulate/login.html",
+        "http://ec2-3-110-151-1.ap-south-1.compute.amazonaws.com/tmp/simulate/margin.html",
+        "http://ec2-3-110-151-1.ap-south-1.compute.amazonaws.com/tmp/simulate/session.html",
+        "http://ec2-3-110-151-1.ap-south-1.compute.amazonaws.com/tmp/simulate/popup.html",
+        "http://ec2-3-110-151-1.ap-south-1.compute.amazonaws.com/tmp/simulate/2fa.html",
+    ];
+    for tab in browser.clone().get_tabs().lock().unwrap().iter() {
+        if custom_tabs.contains(&tab.get_url().as_str()) {
+            tab.close(true)?;
+        }
+    }
 
     tauri::Builder::default()
-        .manage(BrowserState(Arc::new(Mutex::new(browser))))
+        .manage(BrowserState(Arc::new(Mutex::new(browser.clone()))))
         .invoke_handler(tauri::generate_handler![login, add_margin])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
-
     Ok(())
 }

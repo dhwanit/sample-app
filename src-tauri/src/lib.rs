@@ -1,21 +1,13 @@
-use headless_chrome::browser::tab;
-use headless_chrome::protocol::cdp::Database::Error;
-use headless_chrome::protocol::cdp::Page;
-use headless_chrome::protocol::cdp::Target::CreateTarget;
-use headless_chrome::{browser, Browser, LaunchOptions};
+use headless_chrome::Browser;
 use regex::Regex;
-use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
-use tokio::sync::Mutex;
 use totp_rs::{Algorithm, Secret, TOTP};
 use url::Url;
 
 async fn parse_request_token(url: &str) -> Result<String, Box<dyn std::error::Error>> {
     // Parse the URL
     let parsed_url = Url::parse(url)?;
-    println!("Parsed URL: {}", parsed_url);
-
     // Get the query pairs
     let query_pairs = parsed_url.query_pairs();
     // Find the request_token
@@ -130,7 +122,6 @@ pub async fn request_token(
                     "Could not find the requested token in the page",
                 )));
             }
-            return Ok((String::new(), String::new()));
         }
         Err(e) => {
             println!("Error parsing request token: {}", e);
@@ -155,27 +146,31 @@ pub async fn handle_margin(
             navigated_tab
                 .wait_for_element("button.button-green")?
                 .click()?;
+
+            tab.close(true)?;
             break;
         }
     }
     thread::sleep(Duration::from_secs(WAITING_TIME));
 
     // Step 7: Find the popup tab and enter the margin amount
-    for tabbinger in browser.get_tabs().lock().unwrap().iter() {
-        if (tabbinger.get_url().contains("/simulate/popup")) {
-            tabbinger.wait_for_element("input#addfunds_amount")?;
-            tabbinger
-                .find_element("input#addfunds_amount")?
+    for tab in browser.get_tabs().lock().unwrap().iter() {
+        if (tab.get_url().contains("/simulate/popup")) {
+            tab.wait_for_element("input#addfunds_amount")?;
+            tab.find_element("input#addfunds_amount")?
                 .type_into(margin_amount.to_string().as_str())?;
 
-            tabbinger.wait_for_element("button#addfunds_submit")?;
-            tabbinger.find_element("button#addfunds_submit")?.click()?;
+            tab.wait_for_element("button#addfunds_submit")?;
+            tab.find_element("button#addfunds_submit")?.click()?;
 
-            tabbinger.wait_for_element("button#submit")?;
-            tabbinger.find_element("button#submit")?.click()?;
+            tab.wait_for_element("button#submit")?;
+            tab.find_element("button#submit")?.click()?;
 
-            tabbinger.wait_for_element("button#submit")?;
-            tabbinger.find_element("button#submit")?.click()?;
+            tab.wait_for_element("button#submit")?;
+            tab.find_element("button#submit")?.click()?;
+
+            tab.close(true)?;
+            break;
         }
     }
     return Ok(margin_amount);
