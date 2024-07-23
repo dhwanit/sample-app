@@ -9,9 +9,9 @@ use std::sync::Arc;
 use tauri::Window;
 use tokio::sync::Mutex;
 
-mod lib;
-use lib::handle_margin;
-use lib::request_token;
+extern crate app;
+use app::handle_margin;
+use app::request_token;
 
 #[derive(Clone, serde::Serialize)]
 struct Payload {

@@ -30,7 +30,6 @@ pub async fn request_token(
 ) -> Result<(String, String), Box<dyn std::error::Error>> {
     const LOGIN_URL: &str =
         "http://ec2-3-110-151-1.ap-south-1.compute.amazonaws.com/tmp/simulate/login.html";
-    const WAITING_TIME: u64 = 3; //s
     let new_tab = browser.new_tab()?;
     let navigated_tab = new_tab.navigate_to(LOGIN_URL)?.wait_until_navigated()?;
 
@@ -155,7 +154,7 @@ pub async fn handle_margin(
 
     // Step 7: Find the popup tab and enter the margin amount
     for tab in browser.get_tabs().lock().unwrap().iter() {
-        if (tab.get_url().contains("/simulate/popup")) {
+        if tab.get_url().contains("/simulate/popup"){
             tab.wait_for_element("input#addfunds_amount")?;
             tab.find_element("input#addfunds_amount")?
                 .type_into(margin_amount.to_string().as_str())?;
