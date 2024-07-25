@@ -130,6 +130,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ];
     for tab in browser.clone().get_tabs().lock().unwrap().iter() {
         if custom_tabs.contains(&tab.get_url().as_str()) {
+            // wait some time for the tab to close
+            thread::sleep(Duration::from_secs(1));
             tab.close(true)?;
         }
     }

@@ -136,7 +136,7 @@ pub async fn handle_margin(
     const MARGIN_URL: &str =
         "http://ec2-3-110-151-1.ap-south-1.compute.amazonaws.com/tmp/simulate/margin.html";
 
-    const WAITING_TIME: u64 = 3; //s
+    const WAITING_TIME: u64 = 1; //s
 
     // Step 6: Find the request token tab and open the popup
     for tab in browser.get_tabs().lock().unwrap().iter() {
@@ -146,6 +146,8 @@ pub async fn handle_margin(
                 .wait_for_element("button.button-green")?
                 .click()?;
 
+            // wait some time for the tab to close
+            thread::sleep(Duration::from_secs(WAITING_TIME));
             tab.close(true)?;
             break;
         }
@@ -168,6 +170,8 @@ pub async fn handle_margin(
             tab.wait_for_element("button#submit")?;
             tab.find_element("button#submit")?.click()?;
 
+            // wait some time for the popup to close
+            thread::sleep(Duration::from_secs(WAITING_TIME));
             tab.close(true)?;
             break;
         }
